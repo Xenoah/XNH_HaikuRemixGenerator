@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zen Haiku Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=Zen+Kurenaido&display=swap" rel="stylesheet">
+    
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Shippori Mincho"', 'serif'],
+              hand: ['"Zen Kurenaido"', 'sans-serif'],
+            },
+            colors: {
+              'wasabi': '#7d8d4e',
+              'indigo-dye': '#233b6e',
+              'vermilion': '#d93a32',
+              'sumi': '#2d2d2d',
+              'paper': '#fcfaf2',
+              'paper-dark': '#1c1c1e',
+              'paper-card-dark': '#2c2c2e',
+            },
+            backgroundImage: {
+              'paper-texture': "url('https://www.transparenttextures.com/patterns/cream-paper.png')",
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .vertical-text {
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+      }
+      body {
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      .goog-te-banner-frame.skiptranslate { display: none !important; } 
+      body { top: 0px !important; }
+      #google_translate_element .goog-te-gadget-simple {
+        background-color: transparent !important;
+        border: 1px solid rgba(120, 120, 120, 0.2) !important;
+        padding: 8px !important;
+        border-radius: 4px !important;
+        font-family: sans-serif !important;
+      }
+      .dark #google_translate_element .goog-te-gadget-simple {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      }
+      #google_translate_element .goog-te-gadget-simple span { color: #666 !important; }
+      .dark #google_translate_element .goog-te-gadget-simple span { color: #aaa !important; }
+    </style>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+      }
+    }
+    </script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Application Logic Embedded Here -->
+    <script type="text/babel" data-type="module">
+      import React, { useState, useEffect } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { RefreshCw, Share2, Settings, Info, Feather, User, X, Moon, Sun, Languages, PenTool, Calendar, Check, Loader2 } from 'lucide-react';
+
+      // ==========================================
+      // UTILS: Generator Logic
+      // ==========================================
+      const getEras = (data) => {
+        if (!data) return [];
+        const eras = new Set(data.map(h => h.era));
+        const order = ['平安・鎌倉', '江戸', '明治・大正', '昭和以降'];
+        return Array.from(eras).sort((a, b) => {
+          return order.indexOf(a) - order.indexOf(b);
+        });
+      };
+
+      const getRandomElement = (array) => {
+        if (!array || array.length === 0) return null;
+        return array[Math.floor(Math.random() * array.length)];
+      };
+
+      const generateRandomHaiku = (selectedEras, data) => {
+        if (!data || data.length === 0) return null;
+        let source = data;
+
+        if (selectedEras.length > 0) {
+          source = data.filter(h => selectedEras.includes(h.era));
+        }
+
+        if (source.length === 0) return null;
+
+        const kamiList = source.map(h => ({ 
+          text: h.kami, 
+          sourceAuthor: h.author, 
+          sourceHaiku: `${h.kami}${h.naka}${h.shimo}` 
+        }));
+        
+        const nakaList = source.map(h => ({ 
+          text: h.naka, 
+          sourceAuthor: h.author, 
+          sourceHaiku: `${h.kami}${h.naka}${h.shimo}` 
+        }));
+        
+        const shimoList = source.map(h => ({ 
+          text: h.shimo, 
+          sourceAuthor: h.author, 
+          sourceHaiku: `${h.kami}${h.naka}${h.shimo}` 
+        }));
+
+        const kami = getRandomElement(kamiList);
+        const naka = getRandomElement(nakaList);
+        const shimo = getRandomElement(shimoList);
+
+        if (!kami || !naka || !shimo) return null;
+
+        return {
+          kami,
+          naka,
+          shimo,
+          id: Date.now().toString(),
+        };
+      };
+
+      const getAllCounts = (selectedEras, data) => {
+        if (!data) return { kami: 0, naka: 0, shimo: 0, totalCombinations: 0 };
+        let source = data;
+        if (selectedEras.length > 0) {
+          source = data.filter(h => selectedEras.includes(h.era));
+        }
+        
+        const count = source.length;
+        return {
+          kami: count,
+          naka: count,
+          shimo: count,
+          totalCombinations: count * count * count
+        };
+      };
+
+      // ==========================================
+      // COMPONENT: HaikuCard
+      // ==========================================
+      const HaikuCard = ({ haiku, isAnimating, customName }) => {
+        const [showSource, setShowSource] = useState(false);
+
+        useEffect(() => {
+          setShowSource(false);
+        }, [haiku]);
+
+        return (
+          <div className="relative w-full max-w-[340px] md:max-w-[380px] aspect-[6/7] mx-auto transition-all duration-500 shadow-xl hover:shadow-2xl bg-[#fffef9] dark:bg-paper-card-dark rounded-sm group">
+            
+            {/* Gold/Decor Border frame */}
+            <div className="absolute inset-1 border border-stone-200 dark:border-stone-600 pointer-events-none z-20"></div>
+            <div className="absolute inset-2 border border-stone-100 dark:border-stone-700 pointer-events-none z-20"></div>
+
+            {/* Paper texture overlay */}
+            <div className="absolute inset-0 bg-paper-texture opacity-50 pointer-events-none mix-blend-multiply dark:mix-blend-overlay z-10"></div>
+            
+            {/* Content Container */}
+            <div className="relative z-20 w-full h-full p-6 md:p-10 flex flex-row-reverse justify-between items-stretch select-none notranslate">
+              
+              {/* Kami (Top 5) */}
+              <div className="flex-1 flex justify-center pt-2 md:pt-6">
+                 <div className={`vertical-text text-3xl md:text-4xl font-serif text-sumi dark:text-stone-100 tracking-widest leading-normal whitespace-nowrap transition-all duration-1000 ease-out ${isAnimating ? 'opacity-0 -translate-y-4 blur-sm' : 'opacity-100 translate-y-0 blur-0'}`}>
+                   {haiku.kami.text}
+                 </div>
+              </div>
+
+              {/* Naka (Middle 7) */}
+              <div className="flex-1 flex justify-center pt-16 md:pt-24">
+                 <div className={`vertical-text text-3xl md:text-4xl font-serif text-sumi dark:text-stone-100 tracking-widest leading-normal whitespace-nowrap transition-all duration-1000 delay-100 ease-out ${isAnimating ? 'opacity-0 -translate-y-4 blur-sm' : 'opacity-100 translate-y-0 blur-0'}`}>
+                   {haiku.naka.text}
+                 </div>
+              </div>
+
+              {/* Shimo (Bottom 5) */}
+              <div className="flex-1 flex justify-center pt-32 md:pt-44">
+                 <div className={`vertical-text text-3xl md:text-4xl font-serif text-sumi dark:text-stone-100 tracking-widest leading-normal whitespace-nowrap transition-all duration-1000 delay-200 ease-out ${isAnimating ? 'opacity-0 -translate-y-4 blur-sm' : 'opacity-100 translate-y-0 blur-0'}`}>
+                   {haiku.shimo.text}
+                 </div>
+              </div>
+
+              {/* Author Signature Column */}
+              <div className="w-10 md:w-12 flex flex-col justify-end pb-4 md:pb-8 items-center mr-1 md:mr-2">
+                  <div className={`vertical-text text-base md:text-lg text-stone-500 dark:text-stone-400 font-serif tracking-widest mb-3 transition-opacity duration-1000 delay-300 ${isAnimating ? 'opacity-0' : 'opacity-80'}`}>
+                    {customName}
+                  </div>
+                  {/* Hanko (Seal) */}
+                  <div className={`transition-all duration-500 delay-500 transform ${isAnimating ? 'opacity-0 scale-50 rotate-12' : 'opacity-90 scale-100 rotate-[-5deg]'}`}>
+                     <div className="w-8 h-8 md:w-10 md:h-10 border-[1.5px] border-vermilion rounded-md flex items-center justify-center bg-vermilion/5 dark:bg-vermilion/20 text-vermilion font-serif font-bold text-[10px] md:text-xs shadow-sm">
+                       調<br/>合
+                     </div>
+                  </div>
+              </div>
+              
+            </div>
+
+             {/* Interactive Elements Overlay */}
+             <div className="absolute top-0 right-0 p-4 z-30">
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); setShowSource(!showSource); }}
+                   className="text-stone-300 hover:text-indigo-dye dark:hover:text-indigo-300 transition-colors p-2 rounded-full hover:bg-stone-100/50 dark:hover:bg-stone-800/50"
+                   title="句の構成を見る"
+                 >
+                   <Info size={18} />
+                 </button>
+              </div>
+
+              {/* Source Details Modal/Overlay */}
+              {showSource && (
+                 <div 
+                   className="absolute inset-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm p-8 flex flex-col justify-center animate-in fade-in duration-300 rounded-sm"
+                   onClick={() => setShowSource(false)}
+                 >
+                    <div className="border-y-2 border-double border-stone-200 dark:border-stone-700 py-6 space-y-6" onClick={(e) => e.stopPropagation()}>
+                      <h3 className="text-center font-bold text-stone-800 dark:text-stone-200 font-sans text-sm tracking-widest flex justify-center items-center gap-2">
+                        <Feather size={14}/> 引用元
+                      </h3>
+                      
+                      <div className="space-y-4 font-serif">
+                        <div className="grid grid-cols-[auto_1fr] gap-4 items-baseline">
+                          <span className="text-stone-400 text-xs text-right w-8">上五</span>
+                          <div>
+                            <span className="text-lg text-sumi dark:text-stone-100 mr-2">{haiku.kami.text}</span>
+                            <span className="text-xs text-stone-500 dark:text-stone-400 block md:inline">- {haiku.kami.sourceAuthor}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-[auto_1fr] gap-4 items-baseline">
+                          <span className="text-stone-400 text-xs text-right w-8">中七</span>
+                          <div>
+                            <span className="text-lg text-sumi dark:text-stone-100 mr-2">{haiku.naka.text}</span>
+                            <span className="text-xs text-stone-500 dark:text-stone-400 block md:inline">- {haiku.naka.sourceAuthor}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-[auto_1fr] gap-4 items-baseline">
+                          <span className="text-stone-400 text-xs text-right w-8">下五</span>
+                          <div>
+                            <span className="text-lg text-sumi dark:text-stone-100 mr-2">{haiku.shimo.text}</span>
+                            <span className="text-xs text-stone-500 dark:text-stone-400 block md:inline">- {haiku.shimo.sourceAuthor}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-8 text-center">
+                       <button onClick={() => setShowSource(false)} className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 font-sans">
+                         閉じる
+                       </button>
+                    </div>
+                 </div>
+              )}
+          </div>
+        );
+      };
+
+      // ==========================================
+      // COMPONENT: SettingsPanel
+      // ==========================================
+      const SettingsPanel = ({ 
+        isOpen, 
+        onClose, 
+        selectedEras, 
+        onEraChange,
+        isDarkMode,
+        toggleTheme,
+        customName,
+        onCustomNameChange,
+        allEras
+      }) => {
+        useEffect(() => {
+          if (isOpen) {
+            if (!document.getElementById('google-translate-script')) {
+              const script = document.createElement('script');
+              script.id = 'google-translate-script';
+              script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+              document.body.appendChild(script);
+
+              window.googleTranslateElementInit = () => {
+                if (window.google && window.google.translate) {
+                   new window.google.translate.TranslateElement({
+                    pageLanguage: 'ja',
+                    layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+                    autoDisplay: false
+                  }, 'google_translate_element');
+                }
+              };
+            } else {
+              if (window.google && window.google.translate && window.googleTranslateElementInit) {
+                   window.googleTranslateElementInit();
+              }
+            }
+          }
+        }, [isOpen]);
+
+        return (
+          <>
+            {/* Backdrop */}
+            <div 
+              className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              onClick={onClose}
+            />
+
+            {/* Panel */}
+            <div 
+              className={`fixed top-0 right-0 h-full w-full max-w-xs bg-white dark:bg-stone-900 shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-y-auto ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            >
+              <div className="p-6 space-y-8">
+                
+                <div className="flex justify-between items-center border-b border-stone-200 dark:border-stone-700 pb-4">
+                  <h2 className="text-xl font-serif font-bold text-sumi dark:text-stone-100">設定</h2>
+                  <button onClick={onClose} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <section>
+                  <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    外観
+                  </h3>
+                  <button 
+                    onClick={toggleTheme}
+                    className="w-full flex items-center justify-between p-3 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sumi dark:text-stone-100"
+                  >
+                    <span className="font-serif">
+                      {isDarkMode ? 'ダークモード' : 'ライトモード'}
+                    </span>
+                    {isDarkMode ? <Moon size={20} className="text-indigo-400" /> : <Sun size={20} className="text-orange-400" />}
+                  </button>
+                </section>
+
+                <section>
+                  <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <PenTool size={16}/> 署名（あなたの名前）
+                  </h3>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => onCustomNameChange(e.target.value)}
+                      maxLength={6}
+                      placeholder="名前を入力"
+                      className="w-full p-3 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-sumi dark:text-stone-100 font-serif focus:ring-2 focus:ring-indigo-dye dark:focus:ring-indigo-400 outline-none transition-all"
+                    />
+                    <span className="absolute right-3 top-3 text-xs text-stone-400 font-sans pointer-events-none">
+                      {customName.length}/6
+                    </span>
+                  </div>
+                </section>
+
+                <section>
+                   <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Calendar size={16}/> ソース（年代・ジャンル）
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {allEras.map((era) => {
+                      const isSelected = selectedEras.includes(era);
+                      return (
+                        <label 
+                          key={era} 
+                          className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                            isSelected 
+                              ? 'bg-indigo-dye/5 dark:bg-indigo-500/20 border-indigo-dye dark:border-indigo-400' 
+                              : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800'
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 transition-colors ${
+                              isSelected 
+                                ? 'bg-indigo-dye border-indigo-dye dark:bg-indigo-400 dark:border-indigo-400' 
+                                : 'bg-white dark:bg-stone-800 border-stone-300'
+                            }`}>
+                               {isSelected && <Check size={14} className="text-white dark:text-stone-900" strokeWidth={3} />}
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              value={era}
+                              checked={isSelected}
+                              onChange={(e) => onEraChange(era, e.target.checked)}
+                              className="hidden" // Hide native checkbox
+                            />
+                            <span className={`font-serif ${isSelected ? 'text-indigo-dye dark:text-indigo-300 font-bold' : 'text-sumi dark:text-stone-300'}`}>
+                              {era}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-2">※複数選択可。選択した時代の句材を組み合わせて生成します。</p>
+                </section>
+
+                <section>
+                   <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Languages size={16}/> 翻訳
+                  </h3>
+                  <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-lg border border-stone-200 dark:border-stone-700">
+                     <div id="google_translate_element" className="w-full min-h-[40px]"></div>
+                  </div>
+                </section>
+
+              </div>
+            </div>
+          </>
+        );
+      };
+
+      // ==========================================
+      // APP COMPONENT
+      // ==========================================
+      const App = () => {
+        const [haikuData, setHaikuData] = useState([]);
+        const [isLoading, setIsLoading] = useState(true);
+        const [currentHaiku, setCurrentHaiku] = useState(null);
+        const [isAnimating, setIsAnimating] = useState(false);
+        const [selectedEras, setSelectedEras] = useState([]);
+        const [customName, setCustomName] = useState('人工知能');
+        const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+        const [isDarkMode, setIsDarkMode] = useState(false);
+        const [counts, setCounts] = useState({kami:0, naka:0, shimo:0, totalCombinations:0});
+        const [allEras, setAllEras] = useState([]);
+
+        useEffect(() => {
+          fetch('./haikus.json')
+            .then(res => res.json())
+            .then(data => {
+              setHaikuData(data);
+              const eras = getEras(data);
+              setAllEras(eras);
+              setSelectedEras(eras);
+              
+              const counts = getAllCounts(eras, data);
+              setCounts(counts);
+              
+              if (counts.totalCombinations > 0) {
+                 const initialHaiku = generateRandomHaiku(eras, data);
+                 setCurrentHaiku(initialHaiku);
+              }
+              setIsLoading(false);
+            })
+            .catch(err => {
+              console.error("Failed to load haikus", err);
+              setIsLoading(false);
+            });
+        }, []);
+
+        useEffect(() => {
+          if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }, [isDarkMode]);
+
+        const refreshHaiku = (eras, data = haikuData) => {
+          const counts = getAllCounts(eras, data);
+          setCounts(counts);
+          
+          if (counts.totalCombinations === 0) {
+            setCurrentHaiku(null);
+            return;
+          }
+          // Only generate if we don't have one or user explicitly requested (handled by handleGenerate)
+          // But when filter changes, we might want to ensure current haiku is valid? 
+          // For now, let's keep the current haiku unless generate is pressed, or if it's invalid.
+          // But actually, changing filter usually implies wanting new content scope.
+          // Let's not auto-regenerate on filter change to avoid jarring jumps, 
+          // but the "total counts" will update.
+        }
+
+        const handleEraChange = (era, isChecked) => {
+          let newEras = [...selectedEras];
+          if (isChecked) {
+            if (!newEras.includes(era)) newEras.push(era);
+          } else {
+            newEras = newEras.filter(e => e !== era);
+          }
+          
+          setSelectedEras(newEras);
+          refreshHaiku(newEras);
+        };
+
+        const handleGenerate = () => {
+          if (isAnimating) return;
+          setIsAnimating(true);
+          setTimeout(() => {
+            const newHaiku = generateRandomHaiku(selectedEras, haikuData);
+            if (newHaiku) {
+              setCurrentHaiku(newHaiku);
+            }
+            setTimeout(() => {
+              setIsAnimating(false);
+            }, 100);
+          }, 800);
+        };
+
+        const handleShare = async () => {
+          if (currentHaiku) {
+              const text = `${currentHaiku.kami.text} ${currentHaiku.naka.text} ${currentHaiku.shimo.text}\n\n調合: ${customName}\n#AI俳句 #ZenHaiku`;
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (isMobile && navigator.share) {
+                   try {
+                       await navigator.share({
+                           title: 'AI俳句',
+                           text: text,
+                       });
+                   } catch (err) {
+                       console.log("Share cancelled");
+                   }
+              } else {
+                   const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+                   window.open(url, '_blank');
+              }
+          }
+        };
+        
+        const handleSaveImage = async () => {
+          if (isAnimating) return;
+          const html2canvas = (await import('https://esm.sh/html2canvas@1.4.1')).default;
+          const cardElement = document.getElementById('haiku-card-container');
+          if (!cardElement) return;
+
+          try {
+              const canvas = await html2canvas(cardElement, {
+                  scale: 2,
+                  backgroundColor: null,
+                  logging: false,
+                  useCORS: true,
+                  ignoreElements: (element) => {
+                      return element.getAttribute('data-html2canvas-ignore') === 'true';
+                  }
+              });
+
+              const image = canvas.toDataURL("image/png");
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+              if (isMobile && navigator.canShare) {
+                   const blob = await (await fetch(image)).blob();
+                   const file = new File([blob], "zen-haiku.png", { type: "image/png" });
+                   try {
+                      if (navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                              files: [file],
+                              title: 'Zen Haiku',
+                              text: 'AIが詠んだ俳句'
+                          });
+                          return;
+                      }
+                   } catch (e) {
+                       console.log("Sharing failed", e);
+                   }
+              }
+              const link = document.createElement('a');
+              link.download = `haiku-${Date.now()}.png`;
+              link.href = image;
+              link.click();
+          } catch (err) {
+              console.error("Failed to generate image", err);
+              alert("画像の保存に失敗しました。");
+          }
+        };
+
+        const getButtonLabel = () => {
+            if (isLoading) return '読み込み中...';
+            if (haikuData.length === 0) return '俳句データがありません';
+            if (selectedEras.length === 0) return '時代を選択してください';
+            const allEras = getEras(haikuData);
+            if (selectedEras.length === allEras.length) return 'ランダムで調合';
+            return '選択した時代で調合';
+        };
+
+        return (
+          <div className={`min-h-screen bg-stone-100 dark:bg-stone-900 transition-colors duration-500 font-serif text-sumi dark:text-stone-100 relative overflow-hidden flex flex-col selection:bg-wasabi selection:text-white`}>
+            {/* Background Texture Overlay */}
+            <div className="fixed inset-0 pointer-events-none opacity-30 z-0 dark:invert" 
+                 style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")` }}>
+            </div>
+            
+            {/* Settings Button */}
+            <div className="absolute top-4 right-4 z-50">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                disabled={isLoading}
+                className="p-3 text-stone-400 hover:text-indigo-dye dark:hover:text-indigo-300 transition-colors bg-white/50 dark:bg-black/20 rounded-full backdrop-blur-sm disabled:opacity-50"
+              >
+                <Settings size={20} />
+              </button>
+            </div>
+
+            <SettingsPanel 
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              selectedEras={selectedEras}
+              onEraChange={handleEraChange}
+              isDarkMode={isDarkMode}
+              toggleTheme={() => setIsDarkMode(!isDarkMode)}
+              customName={customName}
+              onCustomNameChange={setCustomName}
+              allEras={allEras}
+            />
+            
+            {/* Header */}
+            <header className="relative z-10 w-full pt-8 pb-4 text-center">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-[0.2em] text-indigo-dye dark:text-indigo-300 flex items-center justify-center gap-3">
+                <span className="opacity-80 text-2xl">言葉</span>
+                <span>調合</span>
+              </h1>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-3 font-sans tracking-wider uppercase opacity-70">
+                Zen Haiku Remixer
+              </p>
+            </header>
+
+            {/* Main Content */}
+            <main className="flex-grow relative z-10 flex flex-col items-center justify-center p-4 gap-8 md:gap-10">
+              <div id="haiku-card-container" className="w-full flex justify-center py-4 px-2">
+                {isLoading ? (
+                  <div className="w-full max-w-[340px] aspect-[6/7] flex items-center justify-center text-stone-400 border-2 border-dashed border-stone-300 rounded-lg">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="animate-spin" size={32} />
+                        <p>言葉を集めています...</p>
+                      </div>
+                   </div>
+                ) : currentHaiku ? (
+                   <HaikuCard haiku={currentHaiku} isAnimating={isAnimating} customName={customName} />
+                ) : (
+                   <div className="w-full max-w-[340px] aspect-[6/7] flex items-center justify-center text-stone-400 border-2 border-dashed border-stone-300 rounded-lg">
+                      <p>設定から時代を選択してください</p>
+                   </div>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center gap-4 w-full max-w-xs z-20">
+                <button
+                  onClick={handleGenerate}
+                  disabled={isAnimating || selectedEras.length === 0 || isLoading}
+                  className="group relative w-full flex items-center justify-center gap-3 px-8 py-4 bg-indigo-dye dark:bg-indigo-900 text-white text-lg font-bold tracking-widest rounded shadow-lg hover:bg-[#1a2c55] dark:hover:bg-indigo-800 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden active:scale-95"
+                >
+                  <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent z-10" />
+                  <RefreshCw className={`transition-transform duration-700 ${isAnimating || isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} size={20} />
+                  <span>{getButtonLabel()}</span>
+                </button>
+                
+                <div className="flex gap-3 w-full">
+                  <button
+                      onClick={handleShare}
+                      disabled={!currentHaiku || isLoading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white/60 dark:bg-stone-800/60 p-3 rounded hover:bg-white dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors text-xs font-sans shadow-sm backdrop-blur-sm disabled:opacity-50"
+                  >
+                      <Share2 size={14} />
+                      <span>テキストで共有</span>
+                  </button>
+                   <button
+                      onClick={handleSaveImage}
+                      disabled={!currentHaiku || isLoading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white/60 dark:bg-stone-800/60 p-3 rounded hover:bg-white dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors text-xs font-sans shadow-sm backdrop-blur-sm disabled:opacity-50"
+                  >
+                      <Share2 size={14} />
+                      <span>画像を保存</span>
+                  </button>
+                </div>
+
+                <div className="text-[10px] md:text-xs text-stone-400 dark:text-stone-500 font-sans text-center leading-relaxed mt-1">
+                  <p className="mb-1">
+                    {isLoading ? '...' : (selectedEras.length === allEras.length ? '古今の名句' : selectedEras.join('・'))}から調合
+                  </p>
+                  <p>総パターン: <span className="font-mono text-stone-500 dark:text-stone-400">{counts.totalCombinations.toLocaleString()}</span> 通り</p>
+                </div>
+              </div>
+            </main>
+
+            <footer className="relative z-10 w-full p-6 text-center text-stone-300 dark:text-stone-600 text-[10px]">
+              <p className="tracking-widest">わび・さび・AI</p>
+            </footer>
+          </div>
+        );
+      };
+
+      // ==========================================
+      // ENTRY POINT
+      // ==========================================
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
