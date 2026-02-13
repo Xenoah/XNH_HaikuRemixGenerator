@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zen Haiku Generator</title>
+    <title>俳句万華狂 - Haiku Mangekyo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,9 +88,15 @@
       const getEras = (data) => {
         if (!data) return [];
         const eras = new Set(data.map(h => h.era));
-        const order = ['平安・鎌倉', '江戸', '明治・大正', '昭和以降'];
+        // Add Gemini Eras to the order
+        const order = ['平安・鎌倉', '江戸', '明治・大正', '昭和以降', 'AI・花鳥風月', 'AI・電脳世界', 'AI・銀河鉄道'];
         return Array.from(eras).sort((a, b) => {
-          return order.indexOf(a) - order.indexOf(b);
+          const indexA = order.indexOf(a);
+          const indexB = order.indexOf(b);
+          // If not in order list, put at the end
+          const valA = indexA === -1 ? 999 : indexA;
+          const valB = indexB === -1 ? 999 : indexB;
+          return valA - valB;
         });
       };
 
@@ -482,12 +488,6 @@
             setCurrentHaiku(null);
             return;
           }
-          // Only generate if we don't have one or user explicitly requested (handled by handleGenerate)
-          // But when filter changes, we might want to ensure current haiku is valid? 
-          // For now, let's keep the current haiku unless generate is pressed, or if it's invalid.
-          // But actually, changing filter usually implies wanting new content scope.
-          // Let's not auto-regenerate on filter change to avoid jarring jumps, 
-          // but the "total counts" will update.
         }
 
         const handleEraChange = (era, isChecked) => {
@@ -518,13 +518,13 @@
 
         const handleShare = async () => {
           if (currentHaiku) {
-              const text = `${currentHaiku.kami.text} ${currentHaiku.naka.text} ${currentHaiku.shimo.text}\n\n調合: ${customName}\n#AI俳句 #ZenHaiku`;
+              const text = `${currentHaiku.kami.text} ${currentHaiku.naka.text} ${currentHaiku.shimo.text}\n\n調合: ${customName}\n#俳句万華狂 #AI俳句`;
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
               
               if (isMobile && navigator.share) {
                    try {
                        await navigator.share({
-                           title: 'AI俳句',
+                           title: '俳句万華狂',
                            text: text,
                        });
                    } catch (err) {
@@ -559,12 +559,12 @@
 
               if (isMobile && navigator.canShare) {
                    const blob = await (await fetch(image)).blob();
-                   const file = new File([blob], "zen-haiku.png", { type: "image/png" });
+                   const file = new File([blob], "haiku-mangekyo.png", { type: "image/png" });
                    try {
                       if (navigator.canShare({ files: [file] })) {
                           await navigator.share({
                               files: [file],
-                              title: 'Zen Haiku',
+                              title: '俳句万華狂',
                               text: 'AIが詠んだ俳句'
                           });
                           return;
@@ -574,7 +574,7 @@
                    }
               }
               const link = document.createElement('a');
-              link.download = `haiku-${Date.now()}.png`;
+              link.download = `haiku-mangekyo-${Date.now()}.png`;
               link.href = image;
               link.click();
           } catch (err) {
@@ -624,12 +624,12 @@
             
             {/* Header */}
             <header className="relative z-10 w-full pt-8 pb-4 text-center">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-[0.2em] text-indigo-dye dark:text-indigo-300 flex items-center justify-center gap-3">
-                <span className="opacity-80 text-2xl">言葉</span>
-                <span>調合</span>
+              <h1 className="text-3xl md:text-5xl font-bold tracking-[0.1em] text-indigo-dye dark:text-indigo-300 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3">
+                <span className="opacity-90">俳句</span>
+                <span className="text-vermilion dark:text-red-400">万華狂</span>
               </h1>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-3 font-sans tracking-wider uppercase opacity-70">
-                Zen Haiku Remixer
+              <p className="text-[10px] md:text-xs text-stone-500 dark:text-stone-400 mt-3 font-sans tracking-widest uppercase opacity-70">
+                Haiku Mangekyo Generator
               </p>
             </header>
 

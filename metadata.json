@@ -1,5 +1,5 @@
 {
-  "name": "Zen Haiku Generator",
-  "description": "A minimalist Japanese Haiku generator that remixes classic verses into new poetic combinations.",
+  "name": "俳句万華狂",
+  "description": "古今の名句をリミックスし、新たなカオスと美を生み出す俳句ジェネレーター。",
   "requestFramePermissions": []
 }
