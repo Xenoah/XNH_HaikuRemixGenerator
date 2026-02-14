@@ -1,9 +1,63 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" prefix="og: http://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>俳句万華狂 - Haiku Mangekyo</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>俳句万華狂 - AI俳句ジェネレーター | Haiku Mangekyo</title>
+    <meta name="description" content="「俳句万華狂」は、古今の名句（平安〜明治）とAI（Gemini）が詠んだ句をリミックスし、新たなカオスと美を生み出す俳句ジェネレーターです。時代を超えた言葉の調合で、あなただけの俳句を作成・共有しましょう。" />
+    <meta name="keywords" content="俳句, AI俳句, 俳句ジェネレーター, 俳句メーカー, 短歌, 和歌, 松尾芭蕉, 正岡子規, Gemini, 人工知能, 日本文化, 言葉遊び" />
+    <meta name="author" content="Kunihiko Sugiura" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#233b6e" />
+
+    <!-- Open Graph / Facebook / LINE -->
+    <meta property="og:type" content="website" />
+    <!-- 実際の公開URLに合わせて書き換えてください -->
+    <meta property="og:url" content="https://kunihiko-sugiura.github.io/haiku-mangekyo/" />
+    <meta property="og:title" content="俳句万華狂 - AI俳句ジェネレーター" />
+    <meta property="og:description" content="古今の名句とAI生成句をリミックス。言葉の万華鏡を覗いてみませんか？" />
+    <meta property="og:image" content="https://kunihiko-sugiura.github.io/haiku-mangekyo/ogp.png" />
+    <meta property="og:site_name" content="俳句万華狂" />
+    <meta property="og:locale" content="ja_JP" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://kunihiko-sugiura.github.io/haiku-mangekyo/" />
+    <meta name="twitter:title" content="俳句万華狂 - AI俳句ジェネレーター" />
+    <meta name="twitter:description" content="古今の名句とAI生成句をリミックス。言葉の万華鏡を覗いてみませんか？" />
+    <meta name="twitter:image" content="https://kunihiko-sugiura.github.io/haiku-mangekyo/ogp.png" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://kunihiko-sugiura.github.io/haiku-mangekyo/" />
+
+    <!-- Favicon (Data URI for immediate display) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "俳句万華狂",
+      "alternateName": "Haiku Mangekyo",
+      "description": "古今の名句とAI生成句をリミックスし、新たな俳句を生成するWebアプリケーション。",
+      "url": "https://kunihiko-sugiura.github.io/haiku-mangekyo/",
+      "applicationCategory": "EntertainmentApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Kunihiko Sugiura"
+      }
+    }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,28 +141,9 @@
       // ==========================================
       const getEras = (data) => {
         if (!data) return [];
-        const eras = new Set(data.map(h => h.era));
-        // Add Gemini Eras to the order
-        const order = [
-          '平安・鎌倉', 
-          '江戸', 
-          '明治・大正', 
-          '昭和以降', 
-          'AI・花鳥風月', 
-          'AI・現代生活', 
-          'AI・旅', 
-          'AI・恋',
-          'AI・電脳世界', 
-          'AI・銀河鉄道'
-        ];
-        return Array.from(eras).sort((a, b) => {
-          const indexA = order.indexOf(a);
-          const indexB = order.indexOf(b);
-          // If not in order list, put at the end
-          const valA = indexA === -1 ? 999 : indexA;
-          const valB = indexB === -1 ? 999 : indexB;
-          return valA - valB;
-        });
+        // JSONデータ内での出現順序を維持して一意の時代リストを作成します。
+        // これにより、JS側のコードを変更することなく、JSON側でカテゴリの追加や並び替えが可能になります。
+        return Array.from(new Set(data.map(h => h.era)));
       };
 
       const getRandomElement = (array) => {
