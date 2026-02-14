@@ -80,7 +80,7 @@
     <script type="text/babel" data-type="module">
       import React, { useState, useEffect } from 'react';
       import ReactDOM from 'react-dom/client';
-      import { RefreshCw, Share2, Settings, Info, Feather, User, X, Moon, Sun, Languages, PenTool, Calendar, Check, Loader2 } from 'lucide-react';
+      import { RefreshCw, Share2, Settings, Info, Feather, User, X, Moon, Sun, Languages, PenTool, Calendar, Check, Loader2, AlertCircle, CheckSquare, Square } from 'lucide-react';
 
       // ==========================================
       // UTILS: Generator Logic
@@ -89,7 +89,18 @@
         if (!data) return [];
         const eras = new Set(data.map(h => h.era));
         // Add Gemini Eras to the order
-        const order = ['平安・鎌倉', '江戸', '明治・大正', '昭和以降', 'AI・花鳥風月', 'AI・電脳世界', 'AI・銀河鉄道'];
+        const order = [
+          '平安・鎌倉', 
+          '江戸', 
+          '明治・大正', 
+          '昭和以降', 
+          'AI・花鳥風月', 
+          'AI・現代生活', 
+          'AI・旅', 
+          'AI・恋',
+          'AI・電脳世界', 
+          'AI・銀河鉄道'
+        ];
         return Array.from(eras).sort((a, b) => {
           const indexA = order.indexOf(a);
           const indexB = order.indexOf(b);
@@ -294,7 +305,8 @@
         toggleTheme,
         customName,
         onCustomNameChange,
-        allEras
+        allEras,
+        eraCounts
       }) => {
         useEffect(() => {
           if (isOpen) {
@@ -320,6 +332,14 @@
             }
           }
         }, [isOpen]);
+
+        const handleSelectAll = () => {
+          onEraChange([...allEras]);
+        };
+
+        const handleDeselectAll = () => {
+          onEraChange([]);
+        };
 
         return (
           <>
@@ -377,12 +397,32 @@
                 </section>
 
                 <section>
-                   <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Calendar size={16}/> ソース（年代・ジャンル）
-                  </h3>
+                   <div className="flex justify-between items-end mb-4">
+                     <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={16}/> ソース
+                    </h3>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleSelectAll}
+                        className="text-[10px] bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                        title="全選択"
+                      >
+                        全選択
+                      </button>
+                      <button 
+                        onClick={handleDeselectAll}
+                        className="text-[10px] bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                        title="全解除"
+                      >
+                        全解除
+                      </button>
+                    </div>
+                   </div>
+
                   <div className="flex flex-col gap-2">
                     {allEras.map((era) => {
                       const isSelected = selectedEras.includes(era);
+                      const count = eraCounts ? eraCounts[era] : 0;
                       return (
                         <label 
                           key={era} 
@@ -409,6 +449,9 @@
                             />
                             <span className={`font-serif ${isSelected ? 'text-indigo-dye dark:text-indigo-300 font-bold' : 'text-sumi dark:text-stone-300'}`}>
                               {era}
+                              <span className="ml-2 text-[10px] font-sans opacity-60 font-normal">
+                                {count}句
+                              </span>
                             </span>
                           </div>
                         </label>
@@ -424,6 +467,22 @@
                   </h3>
                   <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-lg border border-stone-200 dark:border-stone-700">
                      <div id="google_translate_element" className="w-full min-h-[40px]"></div>
+                  </div>
+                </section>
+
+                <section className="border-t border-stone-200 dark:border-stone-700 pt-6">
+                   <h3 className="text-sm font-sans font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <AlertCircle size={16}/> 著作権・免責事項
+                  </h3>
+                  <div className="text-[10px] md:text-xs text-stone-500 dark:text-stone-400 space-y-2 leading-relaxed bg-stone-50 dark:bg-stone-800 p-3 rounded-lg">
+                    <p>
+                      <span className="font-bold">【収録句について】</span><br/>
+                      平安～江戸時代の句はパブリックドメインのものを採用しています。明治以降の句についても、原則として著作者の死後70年を経過し保護期間が満了したものを採用するよう努めています。
+                    </p>
+                    <p>
+                      <span className="font-bold">【AI生成句について】</span><br/>
+                      「AI」カテゴリの俳句は、大規模言語モデル（Gemini）によって確率的に生成されたものです。既存の著作物と偶然に類似する可能性がありますが、特定の作品を意図的に模倣または侵害するものではありません。
+                    </p>
                   </div>
                 </section>
 
@@ -447,6 +506,7 @@
         const [isDarkMode, setIsDarkMode] = useState(false);
         const [counts, setCounts] = useState({kami:0, naka:0, shimo:0, totalCombinations:0});
         const [allEras, setAllEras] = useState([]);
+        const [eraCounts, setEraCounts] = useState({});
 
         useEffect(() => {
           fetch('./haikus.json')
@@ -457,6 +517,13 @@
               setAllEras(eras);
               setSelectedEras(eras);
               
+              // Calculate counts per era
+              const eCounts = {};
+              data.forEach(h => {
+                eCounts[h.era] = (eCounts[h.era] || 0) + 1;
+              });
+              setEraCounts(eCounts);
+
               const counts = getAllCounts(eras, data);
               setCounts(counts);
               
@@ -491,6 +558,14 @@
         }
 
         const handleEraChange = (era, isChecked) => {
+          // Bulk update handling: if era is an array, set it directly
+          if (Array.isArray(era)) {
+             const newEras = era;
+             setSelectedEras(newEras);
+             refreshHaiku(newEras);
+             return;
+          }
+
           let newEras = [...selectedEras];
           if (isChecked) {
             if (!newEras.includes(era)) newEras.push(era);
@@ -620,6 +695,7 @@
               customName={customName}
               onCustomNameChange={setCustomName}
               allEras={allEras}
+              eraCounts={eraCounts}
             />
             
             {/* Header */}
